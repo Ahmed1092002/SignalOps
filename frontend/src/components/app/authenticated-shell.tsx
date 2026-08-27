@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { CreateIncidentDialog } from "@/components/app/create-incident-dialog";
+import { fetchMe } from "@/lib/api/auth";
 import { connectRealtime, disconnectRealtime } from "@/lib/ws-client";
 import { useSessionStore } from "@/stores/session-store";
 
@@ -18,15 +19,28 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
   const status = useSessionStore((s) => s.status);
   const activeOrgId = useSessionStore((s) => s.activeOrgId);
   const memberships = useSessionStore((s) => s.memberships);
+  const setMemberships = useSessionStore((s) => s.setMemberships);
   const setActiveOrg = useSessionStore((s) => s.setActiveOrg);
 
   useEffect(() => {
-    if (status !== "authenticated" || activeOrgId) return;
-    const firstActive = memberships.find((m) => m.status === "ACTIVE");
-    if (firstActive) {
-      setActiveOrg(firstActive.organizationId);
+    if (status !== "authenticated") return;
+    if (memberships.length === 0) {
+      fetchMe()
+        .then((me) => {
+          setMemberships(me.memberships);
+          const firstActive = me.memberships.find((m) => m.status === "ACTIVE");
+          if (firstActive && !activeOrgId) {
+            setActiveOrg(firstActive.organizationId);
+          }
+        })
+        .catch(() => {});
+    } else if (!activeOrgId) {
+      const firstActive = memberships.find((m) => m.status === "ACTIVE");
+      if (firstActive) {
+        setActiveOrg(firstActive.organizationId);
+      }
     }
-  }, [status, activeOrgId, memberships, setActiveOrg]);
+  }, [status, activeOrgId, memberships, setActiveOrg, setMemberships]);
 
   useEffect(() => {
     if (status === "authenticated" && activeOrgId) {

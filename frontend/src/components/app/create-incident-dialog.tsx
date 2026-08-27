@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { SeverityBadge } from "@/components/app/badges";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -174,23 +175,29 @@ export function CreateIncidentDialog() {
           <fieldset className="grid gap-1.5">
             <legend className="text-sm font-medium">Severity</legend>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {SEVERITIES.map((level) => (
-                <label
-                  key={level}
-                  className="cursor-pointer rounded-md border p-2.5 text-center transition-colors has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
-                >
-                  <input
-                    type="radio"
-                    value={level}
-                    {...form.register("severity")}
-                    className="sr-only"
-                  />
-                  <SeverityBadge severity={level} />
-                  <p className="mt-1.5 line-clamp-2 text-[11px] leading-tight text-muted-foreground">
-                    {severityDefinition[level]}
-                  </p>
-                </label>
-              ))}
+              {SEVERITIES.map((level) => {
+                const isSelected = severity === level;
+                return (
+                  <button
+                    key={level}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    onClick={() => form.setValue("severity", level, { shouldValidate: true })}
+                    className={cn(
+                      "flex flex-col items-center justify-between rounded-lg border p-2.5 text-center transition-all cursor-pointer select-none",
+                      isSelected
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-xs font-semibold"
+                        : "border-border bg-card hover:bg-muted/60 hover:border-muted-foreground/30 opacity-75 hover:opacity-100"
+                    )}
+                  >
+                    <SeverityBadge severity={level} />
+                    <p className="mt-1.5 line-clamp-2 text-[11px] leading-tight text-muted-foreground">
+                      {severityDefinition[level]}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           </fieldset>
 

@@ -46,12 +46,13 @@ export const useSessionStore = create<SessionState>()(
             membershipsValue.some(
               (m) => m.organizationId === state.activeOrgId && m.status === "ACTIVE"
             );
+          const firstActive = membershipsValue.find((m) => m.status === "ACTIVE");
           return {
             status: "authenticated",
             accessToken,
             user,
             memberships: membershipsValue,
-            activeOrgId: stillMember ? state.activeOrgId : null,
+            activeOrgId: stillMember ? state.activeOrgId : (firstActive ? firstActive.organizationId : null),
           };
         }),
       setMemberships: (memberships) =>
@@ -61,9 +62,10 @@ export const useSessionStore = create<SessionState>()(
             memberships.some(
               (m) => m.organizationId === state.activeOrgId && m.status === "ACTIVE"
             );
+          const firstActive = memberships.find((m) => m.status === "ACTIVE");
           return {
             memberships,
-            activeOrgId: stillMember ? state.activeOrgId : null,
+            activeOrgId: stillMember ? state.activeOrgId : (firstActive ? firstActive.organizationId : null),
             status: state.accessToken ? state.status : state.status,
           };
         }),

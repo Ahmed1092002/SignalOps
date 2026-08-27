@@ -25,13 +25,19 @@ public class WebConfig implements WebMvcConfigurer {
 
   @Override
   public void addCorsMappings(CorsRegistry registry) {
-    List<String> origins = properties.security().corsAllowedOrigins();
+    List<String> origins = properties.security() != null ? properties.security().corsAllowedOrigins() : null;
+    java.util.Set<String> patternSet = new java.util.LinkedHashSet<>();
+    patternSet.add("http://localhost:[*]");
+    patternSet.add("http://127.0.0.1:[*]");
+    if (origins != null) {
+      patternSet.addAll(origins);
+    }
     registry
         .addMapping("/api/**")
-        .allowedOrigins(origins == null ? new String[0] : origins.toArray(String[]::new))
-        .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        .allowedOriginPatterns(patternSet.toArray(String[]::new))
+        .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD")
         .allowedHeaders("*")
-        .exposedHeaders(RequestIdFilter.REQUEST_ID_HEADER)
+        .exposedHeaders(RequestIdFilter.REQUEST_ID_HEADER, "Authorization", "Set-Cookie")
         .allowCredentials(true)
         .maxAge(3600);
   }

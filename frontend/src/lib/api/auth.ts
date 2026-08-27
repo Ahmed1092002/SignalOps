@@ -16,6 +16,12 @@ export async function login(email: string, password: string): Promise<AuthRespon
     accessToken: response.accessToken,
     user: response.user,
   });
+  try {
+    const me = await fetchMe();
+    useSessionStore.getState().setMemberships(me.memberships);
+  } catch {
+    // me fetch can be handled by shell
+  }
   return response;
 }
 
@@ -34,6 +40,12 @@ export async function register(input: {
     accessToken: response.accessToken,
     user: response.user,
   });
+  try {
+    const me = await fetchMe();
+    useSessionStore.getState().setMemberships(me.memberships);
+  } catch {
+    // me fetch can be handled by shell
+  }
   return response;
 }
 
