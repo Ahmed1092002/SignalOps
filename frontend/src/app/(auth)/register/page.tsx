@@ -65,7 +65,9 @@ export default function RegisterPage() {
     <div className="flex min-h-dvh items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
-          <SignalOpsMark className="mx-auto mb-2 h-10 w-10" />
+          <Link href="/" className="transition-transform hover:scale-105" title="SignalOps Home">
+            <SignalOpsMark className="mx-auto mb-2 h-11 w-11" />
+          </Link>
           <CardTitle>Create your organization</CardTitle>
           <CardDescription>You will become its Owner.</CardDescription>
         </CardHeader>

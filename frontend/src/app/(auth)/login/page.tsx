@@ -66,7 +66,9 @@ function LoginForm() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="items-center text-center">
-        <SignalOpsMark className="mx-auto mb-2 h-10 w-10" />
+        <Link href="/" className="transition-transform hover:scale-105" title="SignalOps Home">
+          <SignalOpsMark className="mx-auto mb-2 h-11 w-11" />
+        </Link>
         <CardTitle>Sign in to SignalOps</CardTitle>
         <CardDescription>Run incidents with clarity and control.</CardDescription>
       </CardHeader>

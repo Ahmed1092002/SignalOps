@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { fetchMe } from "@/lib/api/auth";
 import { refreshSession } from "@/lib/http";
 import { useSessionStore } from "@/stores/session-store";
+import { SignalOpsMark } from "./logo";
 
 /**
  * Restores the session from the HttpOnly refresh cookie on mount, then guards
@@ -72,18 +73,5 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export function SignalOpsMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
-      <rect width="32" height="32" rx="7" className="fill-primary" />
-      <path
-        d="M7 20 L12 20 L14.5 11 L18 24 L20.5 16 L25 16"
-        stroke="white"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
+export { SignalOpsMark } from "./logo";
+

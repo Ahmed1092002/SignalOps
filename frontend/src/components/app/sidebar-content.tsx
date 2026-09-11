@@ -27,13 +27,13 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col gap-4 py-4">
-      <div className="flex items-center gap-2.5 px-4">
-        <SignalOpsMark className="h-8 w-8" />
+      <Link href="/" className="flex items-center gap-2.5 px-4 group">
+        <SignalOpsMark className="h-8 w-8 transition-transform group-hover:scale-105" />
         <div className="leading-tight">
-          <div className="text-sm font-semibold">SignalOps</div>
-          <div className="text-[11px] text-muted-foreground">Incident Management</div>
+          <div className="text-sm font-bold tracking-tight">SignalOps</div>
+          <div className="text-[10px] uppercase font-semibold tracking-wider text-primary/80">Incident Management</div>
         </div>
-      </div>
+      </Link>
       <OrganizationSwitcher />
       <nav aria-label="Primary" className="flex flex-col gap-1 px-3">
         {NAV_ITEMS.map((item) => {
