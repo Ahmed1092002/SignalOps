@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -78,6 +79,31 @@ class RefreshTokenServiceTest {
     assertThat(session.isRevoked()).isTrue();
     assertThat(session.getReplacedById()).isNotNull();
     verify(repository).saveAndFlush(session);
+  }
+
+  @Test
+  void rejectedPreRotationCheckDoesNotCreateOrRevokeAToken() {
+    String rawToken = "disabled-user-token";
+    String tokenHash = service.hash(rawToken);
+    RefreshTokenSession session = new RefreshTokenSession();
+    session.setUserId(userId);
+    session.setFamilyId(familyId);
+    session.setTokenHash(tokenHash);
+    session.setExpiresAt(Instant.now().plus(Duration.ofDays(1)));
+    when(repository.findByTokenHashWithLock(tokenHash)).thenReturn(Optional.of(session));
+
+    assertThatThrownBy(
+            () ->
+                service.rotate(
+                    rawToken,
+                    "test-agent",
+                    ignored -> {
+                      throw new ApiException(ErrorCodes.UNAUTHENTICATED, "Account is disabled.", 401);
+                    }))
+        .isInstanceOf(ApiException.class);
+
+    verify(repository, never()).save(any(RefreshTokenSession.class));
+    verify(repository, never()).saveAndFlush(any(RefreshTokenSession.class));
   }
 
   @Test

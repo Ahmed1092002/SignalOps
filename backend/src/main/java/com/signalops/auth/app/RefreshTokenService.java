@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -65,7 +66,8 @@ public class RefreshTokenService {
    * caller only after this transaction releases its row lock.
    */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public IssuedToken rotate(String rawToken, String userAgent) {
+  public IssuedToken rotate(
+      String rawToken, String userAgent, Consumer<UUID> beforeRotationCommit) {
     RefreshTokenSession session =
         repository
             .findByTokenHashWithLock(hash(rawToken))
@@ -80,11 +82,16 @@ public class RefreshTokenService {
     if (session.isExpired(now)) {
       throw new ApiException(ErrorCodes.UNAUTHENTICATED, "Refresh token expired.", 401);
     }
+    beforeRotationCommit.accept(session.getUserId());
     IssuedToken next = issueMemberOfFamily(session.getUserId(), session.getFamilyId(), userAgent);
     session.setRevokedAt(now);
     session.setReplacedById(next.session().getId());
     repository.saveAndFlush(session);
     return next;
+  }
+
+  public IssuedToken rotate(String rawToken, String userAgent) {
+    return rotate(rawToken, userAgent, ignored -> {});
   }
 
   /**

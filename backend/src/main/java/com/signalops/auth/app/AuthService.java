@@ -83,7 +83,7 @@ public class AuthService {
   public AuthResult rotate(String rawRefreshToken, String userAgent) {
     RefreshTokenService.IssuedToken rotated;
     try {
-      rotated = refreshTokenService.rotate(rawRefreshToken, userAgent);
+      rotated = refreshTokenService.rotate(rawRefreshToken, userAgent, this::assertCanRefresh);
     } catch (RefreshTokenService.RefreshTokenReuseException ex) {
       // The locked rotation transaction has ended, so this independent transaction can revoke
       // every member of the family without blocking on the presented token's row lock.
@@ -128,6 +128,17 @@ public class AuthService {
 
   private ApiException invalidCredentials() {
     return new ApiException(ErrorCodes.INVALID_CREDENTIALS, "Invalid email or password.", 401);
+  }
+
+  private void assertCanRefresh(UUID userId) {
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new ApiException(ErrorCodes.UNAUTHENTICATED, "Account no longer exists.", 401));
+    if (!user.isActive()) {
+      throw new ApiException(ErrorCodes.UNAUTHENTICATED, "Account is disabled.", 401);
+    }
+    firstOrganization(userId);
   }
 
   private Organization firstOrganization(UUID userId) {
