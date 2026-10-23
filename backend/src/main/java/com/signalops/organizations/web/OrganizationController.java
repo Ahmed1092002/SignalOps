@@ -51,10 +51,17 @@ public class OrganizationController {
   @GetMapping("/organizations/current/members")
   public PageResponse<OrganizationDtos.MembershipView> members(
       @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
+    int safePage = Math.max(0, page);
+    int safeSize = Math.clamp(size, 1, 100);
     List<OrganizationDtos.MembershipView> all = memberService.listMembers();
-    int from = Math.min(page * size, all.size());
-    int to = Math.min(from + size, all.size());
-    return PageResponse.of(all.subList(from, to), page, size, all.size());
+    int total = all.size();
+    long fromIndex = (long) safePage * safeSize;
+    if (fromIndex >= total) {
+      return PageResponse.of(List.of(), safePage, safeSize, total);
+    }
+    int from = (int) fromIndex;
+    int to = (int) Math.min((long) total, fromIndex + safeSize);
+    return PageResponse.of(all.subList(from, to), safePage, safeSize, total);
   }
 
   @PatchMapping("/members/{memberId}")

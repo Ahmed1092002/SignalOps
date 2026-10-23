@@ -84,6 +84,13 @@ class OrganizationIT extends IntegrationTestBase {
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.code").value("CANNOT_REMOVE_LAST_OWNER"));
 
+    // Disabling the only active owner must fail.
+    mockMvc
+        .perform(
+            api.patch("/api/v1/members/" + ownerMemberId, owner, "{\"status\":\"DISABLED\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("CANNOT_REMOVE_LAST_OWNER"));
+
     // A second owner makes the first removable.
     String secondOwnerId = inviteAndAccept(owner, "owner2@example.com", "ADMIN", TestHarness.DEMO_PASSWORD);
     mockMvc
@@ -186,6 +193,127 @@ class OrganizationIT extends IntegrationTestBase {
     mockMvc
         .perform(api.get("/api/v1/organizations/current", member))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void concurrentDemoteBothOwnersPreservesAtLeastOneActiveOwner() throws Exception {
+    var owner1 = api.registerAndLogin(api.uniqueEmail(), "Concurrent Org");
+    String owner2MemberId = inviteAndAccept(owner1, "owner2@example.com", "ADMIN", TestHarness.DEMO_PASSWORD);
+    mockMvc
+        .perform(
+            api.patch("/api/v1/members/" + owner2MemberId, owner1, "{\"role\":\"OWNER\"}"))
+        .andExpect(status().isOk());
+
+    String owner1MemberId = api.memberIdForUser(owner1, owner1.userId());
+
+    int threadCount = 2;
+    var executor = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
+    var startLatch = new java.util.concurrent.CountDownLatch(1);
+    var endLatch = new java.util.concurrent.CountDownLatch(threadCount);
+    var statuses = new java.util.concurrent.atomic.AtomicIntegerArray(threadCount);
+
+    executor.submit(() -> {
+      try {
+        startLatch.await();
+        var result = mockMvc.perform(
+            api.patch("/api/v1/members/" + owner1MemberId, owner1, "{\"role\":\"ADMIN\"}")
+        ).andReturn();
+        statuses.set(0, result.getResponse().getStatus());
+      } catch (Exception e) {
+        statuses.set(0, 500);
+      } finally {
+        endLatch.countDown();
+      }
+    });
+
+    executor.submit(() -> {
+      try {
+        startLatch.await();
+        var result = mockMvc.perform(
+            api.patch("/api/v1/members/" + owner2MemberId, owner1, "{\"role\":\"ADMIN\"}")
+        ).andReturn();
+        statuses.set(1, result.getResponse().getStatus());
+      } catch (Exception e) {
+        statuses.set(1, 500);
+      } finally {
+        endLatch.countDown();
+      }
+    });
+
+    startLatch.countDown();
+    endLatch.await(10, java.util.concurrent.TimeUnit.SECONDS);
+    executor.shutdown();
+
+    int successCount = 0;
+    int conflictCount = 0;
+    for (int i = 0; i < threadCount; i++) {
+      int s = statuses.get(i);
+      if (s == 200) {
+        successCount++;
+      } else if (s == 409) {
+        conflictCount++;
+      }
+    }
+
+    assertThat(successCount).isEqualTo(1);
+    assertThat(conflictCount).isEqualTo(1);
+
+    // Verify at least one active owner remains
+    String membersJson = mockMvc
+        .perform(api.get("/api/v1/organizations/current/members", owner1))
+        .andExpect(status().isOk())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
+    long activeOwners = 0;
+    for (var m : api.objectMapper().readTree(membersJson).path("items")) {
+      if ("OWNER".equals(m.path("role").asText()) && "ACTIVE".equals(m.path("status").asText())) {
+        activeOwners++;
+      }
+    }
+    assertThat(activeOwners).isGreaterThanOrEqualTo(1);
+  }
+
+  @Test
+  void paginationParametersAreSafelyValidatedAndNormalized() throws Exception {
+    var owner = api.registerAndLogin(api.uniqueEmail(), "Pagination Org");
+
+    // Negative page and zero size normalized safely
+    mockMvc
+        .perform(api.get("/api/v1/organizations/current/members?page=-1&size=0", owner))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(1))
+        .andExpect(jsonPath("$.items").isArray());
+
+    // Negative size normalized safely
+    mockMvc
+        .perform(api.get("/api/v1/organizations/current/members?page=0&size=-5", owner))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(1));
+
+    // Size capped at 100
+    mockMvc
+        .perform(api.get("/api/v1/organizations/current/members?page=0&size=500", owner))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(100));
+
+    // Page beyond final page returns empty items
+    mockMvc
+        .perform(api.get("/api/v1/organizations/current/members?page=1000&size=20", owner))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(1000))
+        .andExpect(jsonPath("$.size").value(20))
+        .andExpect(jsonPath("$.items").isEmpty());
+
+    // Very large page / size avoid integer overflow
+    mockMvc
+        .perform(api.get("/api/v1/organizations/current/members?page=2147483647&size=100", owner))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(2147483647))
+        .andExpect(jsonPath("$.items").isEmpty());
   }
 
   private String inviteAndAccept(

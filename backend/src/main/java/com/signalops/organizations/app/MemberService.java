@@ -139,11 +139,14 @@ public class MemberService {
   }
 
   private void guardLastOwner(Membership membership, String action) {
-    if (membership.getRole() == Role.OWNER
-        && membership.isActive()
-        && membershipRepository.countActiveOwners(membership.getOrganizationId()) <= 1) {
-      throw ApiException.conflict(
-          ErrorCodes.CANNOT_REMOVE_LAST_OWNER, "You cannot " + action + " of the organization.");
+    if (membership.getRole() == Role.OWNER && membership.isActive()) {
+      organizationRepository
+          .findByIdWithLock(membership.getOrganizationId())
+          .orElseThrow(() -> ApiException.notFound("Organization not found."));
+      if (membershipRepository.countActiveOwners(membership.getOrganizationId()) <= 1) {
+        throw ApiException.conflict(
+            ErrorCodes.CANNOT_REMOVE_LAST_OWNER, "You cannot " + action + " of the organization.");
+      }
     }
   }
 
