@@ -11,4 +11,7 @@ public interface AttachmentRepository extends JpaRepository<Attachment, UUID> {
       UUID incidentId, UUID organizationId);
 
   Optional<Attachment> findByIdAndOrganizationId(UUID id, UUID organizationId);
+
+  Optional<Attachment> findByIdAndIncidentIdAndOrganizationId(
+      UUID id, UUID incidentId, UUID organizationId);
 }

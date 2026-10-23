@@ -342,6 +342,101 @@ class IncidentLifecycleIT extends IntegrationTestBase {
         .andReturn();
   }
 
+  @Test
+  void removeCommanderReturnsFreshVersionForSubsequentMutation() throws Exception {
+    var ctx = orgWithService();
+    String commanderUserId = ctx.session().userId();
+    var created =
+        mockMvc
+            .perform(
+                api.post(
+                    "/api/v1/incidents",
+                    ctx.session(),
+                    """
+                    {"title":"Commander removal test","description":"x","severity":"MEDIUM","serviceIds":["%s"],"commanderUserId":"%s","responderUserIds":[]}
+                    """
+                        .formatted(ctx.serviceId(), commanderUserId)))
+            .andExpect(status().isCreated())
+            .andReturn();
+    long version = api.objectMapper().readTree(created.getResponse().getContentAsString()).path("version").asLong();
+    String incidentId = api.objectMapper().readTree(created.getResponse().getContentAsString()).path("id").asText();
+
+    // Remove commander
+    var removed =
+        mockMvc
+            .perform(
+                api.put(
+                    "/api/v1/incidents/" + incidentId + "/commander",
+                    ctx.session(),
+                    "{\"commanderUserId\":null,\"version\":" + version + "}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.commander").doesNotExist())
+            .andReturn();
+
+    long versionAfterRemove =
+        api.objectMapper().readTree(removed.getResponse().getContentAsString()).path("version").asLong();
+    assertThat(versionAfterRemove).isGreaterThan(version);
+
+    // Subsequent mutation using the returned version succeeds without optimistic lock conflict
+    mockMvc
+        .perform(
+            api.put(
+                "/api/v1/incidents/" + incidentId + "/severity",
+                ctx.session(),
+                "{\"severity\":\"HIGH\",\"version\":" + versionAfterRemove + "}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.severity").value("HIGH"))
+        .andExpect(jsonPath("$.version").value(versionAfterRemove + 1));
+  }
+
+  @Test
+  void concurrentIncidentCreationsGenerateUniqueSequentialKeys() throws Exception {
+    var ctx = orgWithService();
+    int count = 6;
+    java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(count);
+    java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(count);
+    java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+    java.util.List<java.util.concurrent.Future<String>> futures = new java.util.ArrayList<>();
+
+    for (int i = 0; i < count; i++) {
+      final int index = i;
+      futures.add(
+          executor.submit(
+              () -> {
+                ready.countDown();
+                start.await();
+                var result =
+                    mockMvc
+                        .perform(
+                            api.post(
+                                "/api/v1/incidents",
+                                ctx.session(),
+                                """
+                                {"title":"Concurrent Inc %d","description":"x","severity":"LOW","serviceIds":["%s"],"commanderUserId":null,"responderUserIds":[]}
+                                """
+                                    .formatted(index, ctx.serviceId())))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+                return api.objectMapper()
+                    .readTree(result.getResponse().getContentAsString())
+                    .path("key")
+                    .asText();
+              }));
+    }
+
+    ready.await();
+    start.countDown();
+
+    java.util.Set<String> keys = new java.util.HashSet<>();
+    for (var future : futures) {
+      String key = future.get(10, java.util.concurrent.TimeUnit.SECONDS);
+      assertThat(key).startsWith("INC-");
+      keys.add(key);
+    }
+    assertThat(keys).hasSize(count);
+    executor.shutdown();
+  }
+
   private String inviteMember(TestHarness.Session owner, String email, String role) throws Exception {
     var createResult =
         mockMvc

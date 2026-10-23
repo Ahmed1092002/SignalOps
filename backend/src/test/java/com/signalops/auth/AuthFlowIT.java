@@ -177,6 +177,64 @@ class AuthFlowIT extends IntegrationTestBase {
   }
 
   @Test
+  void concurrentRefreshRequestsOnlyOneSucceedsAndFamilyRevoked() throws Exception {
+    var session = api.registerAndLogin(uniqueEmail(), "Concurrent Refresh Org");
+    String refreshToken = session.refreshToken();
+
+    int count = 2;
+    var executor = java.util.concurrent.Executors.newFixedThreadPool(count);
+    var ready = new java.util.concurrent.CountDownLatch(count);
+    var start = new java.util.concurrent.CountDownLatch(1);
+    var futures = new java.util.ArrayList<java.util.concurrent.Future<org.springframework.test.web.servlet.MvcResult>>();
+
+    for (int i = 0; i < count; i++) {
+      futures.add(
+          executor.submit(
+              () -> {
+                ready.countDown();
+                start.await();
+                return mockMvc
+                    .perform(
+                        api.anonPost("/api/v1/auth/refresh", null)
+                            .header("X-Requested-With", "XMLHttpRequest")
+                            .cookie(new jakarta.servlet.http.Cookie(TestHarness.REFRESH_COOKIE, refreshToken)))
+                    .andReturn();
+              }));
+    }
+
+    ready.await();
+    start.countDown();
+
+    int okCount = 0;
+    int reuseCount = 0;
+    for (var future : futures) {
+      var result = future.get(10, java.util.concurrent.TimeUnit.SECONDS);
+      int statusCode = result.getResponse().getStatus();
+      if (statusCode == 200) {
+        okCount++;
+      } else if (statusCode == 401) {
+        String body = result.getResponse().getContentAsString();
+        if (body.contains("REFRESH_REUSE_DETECTED")) {
+          reuseCount++;
+        }
+      }
+    }
+    executor.shutdown();
+
+    assertThat(okCount).isEqualTo(1);
+    assertThat(reuseCount).isEqualTo(1);
+
+    // Entire token family is revoked; even original token can no longer be used
+    mockMvc
+        .perform(
+            api.anonPost("/api/v1/auth/refresh", null)
+                .header("X-Requested-With", "XMLHttpRequest")
+                .cookie(new jakarta.servlet.http.Cookie(TestHarness.REFRESH_COOKIE, refreshToken)))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("REFRESH_REUSE_DETECTED"));
+  }
+
+  @Test
   void invalidAccessTokenIsRejected() throws Exception {
     mockMvc
         .perform(api.anonGet("/api/v1/organizations/mine").header("Authorization", "Bearer not-a-jwt"))

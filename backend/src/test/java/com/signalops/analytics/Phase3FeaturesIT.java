@@ -110,6 +110,15 @@ class Phase3FeaturesIT extends IntegrationTestBase {
                 "/api/v1/incidents/" + incidentId + "/attachments/" + attachmentId + "/download",
                 stranger))
         .andExpect(status().isNotFound());
+
+    // Cross-incident download within same org behaves as not found.
+    String otherIncidentId = createIncident(owner, serviceId);
+    mockMvc
+        .perform(
+            api.get(
+                "/api/v1/incidents/" + otherIncidentId + "/attachments/" + attachmentId + "/download",
+                owner))
+        .andExpect(status().isNotFound());
   }
 
   @Test

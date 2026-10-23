@@ -67,7 +67,7 @@ public class RefreshTokenService {
   public IssuedToken rotate(String rawToken, String userAgent) {
     RefreshTokenSession session =
         repository
-            .findByTokenHash(hash(rawToken))
+            .findByTokenHashWithLock(hash(rawToken))
             .orElseThrow(
                 () ->
                     new ApiException(
@@ -86,7 +86,7 @@ public class RefreshTokenService {
     IssuedToken next = issueMemberOfFamily(session.getUserId(), session.getFamilyId(), userAgent);
     session.setRevokedAt(now);
     session.setReplacedById(next.session().getId());
-    repository.save(session);
+    repository.saveAndFlush(session);
     return next;
   }
 

@@ -82,7 +82,7 @@ public class AttachmentService {
     requireExists(incidentId, context.organizationId());
     Attachment attachment =
         attachmentRepository
-            .findByIdAndOrganizationId(attachmentId, context.organizationId())
+            .findByIdAndIncidentIdAndOrganizationId(attachmentId, incidentId, context.organizationId())
             .orElseThrow(() -> ApiException.notFound("Attachment not found."));
     return new AttachmentDownload(
         attachment.getFilename(), attachment.getContentType(), attachment.getContent());

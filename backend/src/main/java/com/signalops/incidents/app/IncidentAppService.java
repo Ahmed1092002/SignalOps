@@ -17,6 +17,7 @@ import com.signalops.incidents.api.Severity;
 import com.signalops.incidents.domain.Incident;
 import com.signalops.incidents.domain.IncidentComment;
 import com.signalops.incidents.domain.IncidentCommentRepository;
+import com.signalops.incidents.domain.IncidentKeySequence;
 import com.signalops.incidents.domain.IncidentPublicUpdate;
 import com.signalops.incidents.domain.IncidentPublicUpdateRepository;
 import com.signalops.incidents.domain.IncidentRepository;
@@ -50,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class IncidentAppService {
 
   private final IncidentRepository incidentRepository;
+  private final IncidentKeySequence incidentKeySequence;
   private final IncidentResponderRepository responderRepository;
   private final IncidentServiceLinkRepository serviceLinkRepository;
   private final IncidentCommentRepository commentRepository;
@@ -254,6 +256,7 @@ public class IncidentAppService {
     assertFresh(incident, expectedVersion);
     if (commanderUserId == null) {
       incident.removeCommander();
+      incident = incidentRepository.saveAndFlush(incident);
       publish(
           IncidentEventType.COMMANDER_ASSIGNED, incident, context.userId(), Map.of("removed", true));
     } else {
@@ -433,7 +436,7 @@ public class IncidentAppService {
   }
 
   private String nextKey(UUID organizationId) {
-    int next = incidentRepository.maxKeyNumber(organizationId) + 1;
+    int next = incidentKeySequence.nextNumber(organizationId);
     return "INC-" + next;
   }
 
