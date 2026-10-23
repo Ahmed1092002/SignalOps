@@ -81,7 +81,18 @@ public class AuthService {
 
   @Transactional
   public AuthResult rotate(String rawRefreshToken, String userAgent) {
-    RefreshTokenService.IssuedToken rotated = refreshTokenService.rotate(rawRefreshToken, userAgent);
+    RefreshTokenService.IssuedToken rotated;
+    try {
+      rotated = refreshTokenService.rotate(rawRefreshToken, userAgent);
+    } catch (RefreshTokenService.RefreshTokenReuseException ex) {
+      // The locked rotation transaction has ended, so this independent transaction can revoke
+      // every member of the family without blocking on the presented token's row lock.
+      refreshTokenService.revokeFamilySurvivingRollback(ex.familyId());
+      throw new ApiException(
+          ErrorCodes.REFRESH_REUSE_DETECTED,
+          "Refresh token was already used; the session has been revoked.",
+          401);
+    }
     User user =
         userRepository
             .findById(rotated.session().getUserId())

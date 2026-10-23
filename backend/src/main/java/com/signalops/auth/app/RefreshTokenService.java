@@ -16,6 +16,7 @@ import java.util.HexFormat;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -60,10 +61,10 @@ public class RefreshTokenService {
   }
 
   /**
-   * Rotates the presented token. Reuse of a revoked token revokes the entire family (R22).
-   * The revocation commits in its own transaction so it survives the rejecting request.
+   * Rotates the presented token under its own transaction. A reuse result is handled by the
+   * caller only after this transaction releases its row lock.
    */
-  @Transactional
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public IssuedToken rotate(String rawToken, String userAgent) {
     RefreshTokenSession session =
         repository
@@ -74,11 +75,7 @@ public class RefreshTokenService {
                         ErrorCodes.UNAUTHENTICATED, "Invalid refresh token.", 401));
     Instant now = Instant.now(clock);
     if (session.isRevoked()) {
-      revokeFamilySurvivingRollback(session.getFamilyId());
-      throw new ApiException(
-          ErrorCodes.REFRESH_REUSE_DETECTED,
-          "Refresh token was already used; the session has been revoked.",
-          401);
+      throw new RefreshTokenReuseException(session.getFamilyId());
     }
     if (session.isExpired(now)) {
       throw new ApiException(ErrorCodes.UNAUTHENTICATED, "Refresh token expired.", 401);
@@ -128,5 +125,17 @@ public class RefreshTokenService {
       return null;
     }
     return userAgent.length() <= 180 ? userAgent : userAgent.substring(0, 180);
+  }
+
+  static final class RefreshTokenReuseException extends RuntimeException {
+    private final UUID familyId;
+
+    RefreshTokenReuseException(UUID familyId) {
+      this.familyId = familyId;
+    }
+
+    UUID familyId() {
+      return familyId;
+    }
   }
 }

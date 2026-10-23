@@ -10,8 +10,6 @@ import static org.mockito.Mockito.when;
 
 import com.signalops.auth.domain.RefreshTokenSession;
 import com.signalops.auth.domain.RefreshTokenSessionRepository;
-import com.signalops.shared.api.ApiException;
-import com.signalops.shared.api.ErrorCodes;
 import com.signalops.shared.config.AppProperties;
 import java.time.Clock;
 import java.time.Duration;
@@ -129,10 +127,9 @@ class RefreshTokenServiceTest {
                 start.await();
                 service.rotate(rawToken, "agent-1");
                 successCount.incrementAndGet();
-              } catch (ApiException ex) {
-                if (ErrorCodes.REFRESH_REUSE_DETECTED.equals(ex.getCode())) {
-                  reuseCount.incrementAndGet();
-                }
+              } catch (RefreshTokenService.RefreshTokenReuseException ex) {
+                service.revokeFamilySurvivingRollback(ex.familyId());
+                reuseCount.incrementAndGet();
               } catch (Exception ignored) {
               } finally {
                 if (rowLock.isHeldByCurrentThread()) {
@@ -149,10 +146,9 @@ class RefreshTokenServiceTest {
                 start.await();
                 service.rotate(rawToken, "agent-2");
                 successCount.incrementAndGet();
-              } catch (ApiException ex) {
-                if (ErrorCodes.REFRESH_REUSE_DETECTED.equals(ex.getCode())) {
-                  reuseCount.incrementAndGet();
-                }
+              } catch (RefreshTokenService.RefreshTokenReuseException ex) {
+                service.revokeFamilySurvivingRollback(ex.familyId());
+                reuseCount.incrementAndGet();
               } catch (Exception ignored) {
               } finally {
                 if (rowLock.isHeldByCurrentThread()) {
