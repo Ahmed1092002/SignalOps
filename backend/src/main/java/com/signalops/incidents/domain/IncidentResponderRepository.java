@@ -8,7 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface IncidentResponderRepository extends JpaRepository<IncidentResponder, Long> {
+public interface IncidentResponderRepository
+    extends JpaRepository<IncidentResponder, IncidentResponder.Pk> {
 
   List<IncidentResponder> findByIncidentIdAndOrganizationId(UUID incidentId, UUID organizationId);
 

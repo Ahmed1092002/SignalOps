@@ -5,7 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface IncidentServiceLinkRepository extends JpaRepository<IncidentServiceLink, Long> {
+public interface IncidentServiceLinkRepository
+    extends JpaRepository<IncidentServiceLink, IncidentServiceLink.Pk> {
 
   List<IncidentServiceLink> findByIncidentIdAndOrganizationId(UUID incidentId, UUID organizationId);
 
