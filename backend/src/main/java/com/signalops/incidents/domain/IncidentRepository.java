@@ -92,4 +92,14 @@ public interface IncidentRepository extends JpaRepository<Incident, UUID> {
 
   List<Incident> findByOrganizationIdAndArchivedAtIsNullAndCreatedAtGreaterThanEqual(
       UUID organizationId, java.time.Instant createdAt);
+
+  @Query(
+      "select i from Incident i where i.organizationId = :organizationId"
+          + " and i.archivedAt is null"
+          + " and i.status = com.signalops.incidents.api.IncidentStatus.RESOLVED"
+          + " and exists (select 1 from IncidentPublicUpdate u"
+          + " where u.incidentId = i.id and u.organizationId = :organizationId)"
+          + " order by i.resolvedAt desc")
+  Page<Incident> findPublicResolvedByOrganizationId(
+      @Param("organizationId") UUID organizationId, Pageable pageable);
 }

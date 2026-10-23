@@ -134,20 +134,9 @@ public class PublicStatusService {
     Organization org = loadOrg(orgSlug);
     List<PublicPastIncident> results = new ArrayList<>();
     incidentRepository
-        .search(
-            org.getId(),
-            false,
-            "RESOLVED",
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            PageRequest.of(Math.max(page, 0), 20))
+        .findPublicResolvedByOrganizationId(org.getId(), PageRequest.of(Math.max(page, 0), 20))
         .getContent()
         .stream()
-        .filter(incident -> !publicUpdates(incident).isEmpty())
         .forEach(
             incident ->
                 results.add(
