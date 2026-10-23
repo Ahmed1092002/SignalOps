@@ -35,9 +35,11 @@ public class NotificationService {
 
   @Transactional(readOnly = true)
   public PageResponse<NotificationView> listForUser(UUID userId, int page, int size) {
+    int safePage = Math.max(0, page);
+    int safeSize = Math.clamp(size, 1, 50);
     Page<Notification> result =
         notificationRepository.findByUserIdOrderByCreatedAtDesc(
-            userId, PageRequest.of(Math.max(page, 0), size, Sort.by(Sort.Direction.DESC, "createdAt")));
+            userId, PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt")));
     return new PageResponse<>(
         result.getContent().stream().map(NotificationService::toView).toList(),
         result.getNumber(),

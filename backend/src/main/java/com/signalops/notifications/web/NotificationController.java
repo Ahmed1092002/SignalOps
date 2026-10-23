@@ -33,7 +33,9 @@ public class NotificationController {
       @AuthenticationPrincipal UserPrincipal principal,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "15") int size) {
-    return notificationService.listForUser(principal.userId(), page, Math.min(size, 50));
+    int safePage = Math.max(0, page);
+    int safeSize = Math.clamp(size, 1, 50);
+    return notificationService.listForUser(principal.userId(), safePage, safeSize);
   }
 
   @GetMapping("/unread-count")

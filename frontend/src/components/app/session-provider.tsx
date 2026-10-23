@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { fetchMe } from "@/lib/api/auth";
 import { refreshSession } from "@/lib/http";
 import { useSessionStore } from "@/stores/session-store";
@@ -20,17 +20,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const setSession = useSessionStore((s) => s.setSession);
   const setMemberships = useSessionStore((s) => s.setMemberships);
   const markBootstrapped = useSessionStore((s) => s.markBootstrapped);
+  const [restoring, setRestoring] = useState(
+    () => !useSessionStore.getState().accessToken
+  );
 
   useEffect(() => {
+    if (!restoring) return;
     let cancelled = false;
     (async () => {
-      const refreshed = await refreshSession();
-      if (cancelled) return;
-      if (!refreshed) {
-        markBootstrapped();
-        return;
-      }
       try {
+        const refreshed = await refreshSession();
+        if (cancelled) return;
+        if (!refreshed) {
+          markBootstrapped();
+          return;
+        }
         const me = await fetchMe();
         if (cancelled) return;
         setMemberships(me.memberships);
@@ -39,7 +43,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       } catch {
         useSessionStore.getState().clearSession();
       } finally {
-        if (!cancelled) markBootstrapped();
+        if (!cancelled) {
+          markBootstrapped();
+          setRestoring(false);
+        }
       }
     })();
     return () => {
@@ -59,7 +66,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("unhandledrejection", onError);
   }, [queryClient, router]);
 
-  if (status === "bootstrapping") {
+  if (restoring || status === "bootstrapping") {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3" role="status" aria-live="polite">

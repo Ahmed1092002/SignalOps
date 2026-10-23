@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/app/query-provider";
-import { SessionProvider } from "@/components/app/session-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -41,9 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           enableSystem
           disableTransitionOnChange
         >
-          <QueryProvider>
-            <SessionProvider>{children}</SessionProvider>
-          </QueryProvider>
+          <QueryProvider>{children}</QueryProvider>
           <Toaster position="bottom-right" />
         </ThemeProvider>
       </body>

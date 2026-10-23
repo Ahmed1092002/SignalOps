@@ -32,7 +32,7 @@ interface SessionState {
 export const useSessionStore = create<SessionState>()(
   persist(
     (set) => ({
-      status: "bootstrapping",
+      status: "anonymous",
       accessToken: null,
       user: null,
       memberships: [],

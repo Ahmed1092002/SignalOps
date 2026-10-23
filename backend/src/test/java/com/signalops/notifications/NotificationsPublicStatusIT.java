@@ -28,6 +28,25 @@ class NotificationsPublicStatusIT extends IntegrationTestBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items[0].type").value("RESPONDER_ASSIGNED"));
 
+    // Notification pagination parameters are normalized safely
+    mockMvc
+        .perform(api.get("/api/v1/notifications?page=-1&size=0", responder))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(1));
+
+    mockMvc
+        .perform(api.get("/api/v1/notifications?page=0&size=-5", responder))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(1));
+
+    mockMvc
+        .perform(api.get("/api/v1/notifications?page=0&size=1000", responder))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(50));
+
     // Severity raised to CRITICAL notifies participants (responder here; owner is the actor).
     long version = currentVersion(owner, incidentId);
     mockMvc
