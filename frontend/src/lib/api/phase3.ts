@@ -92,6 +92,47 @@ export function attachmentDownloadUrl(incidentId: string, attachmentId: string):
   return `${API_BASE_URL}/incidents/${incidentId}/attachments/${attachmentId}/download`;
 }
 
+export async function downloadAttachment(
+  incidentId: string,
+  attachmentId: string,
+  filename: string
+): Promise<void> {
+  const state = useSessionStore.getState();
+  const response = await fetch(
+    `${API_BASE_URL}/incidents/${incidentId}/attachments/${attachmentId}/download`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer " + state.accessToken,
+        "X-Organization-Id": state.activeOrgId ?? "",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      credentials: "include",
+    }
+  );
+  if (!response.ok) {
+    let message = "Download failed.";
+    try {
+      const body = await response.json();
+      if (typeof body.message === "string") message = body.message;
+    } catch {
+      /* keep default */
+    }
+    throw new Error(message);
+  }
+  const blob = await response.blob();
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(blobUrl);
+  }
+}
+
 export interface MaintenanceWindowView {
   id: string;
   serviceId: string;

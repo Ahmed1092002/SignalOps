@@ -75,7 +75,7 @@ public class SecurityConfig {
     configuration.setAllowedOriginPatterns(new java.util.ArrayList<>(patternSet));
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
     configuration.setAllowedHeaders(List.of("*"));
-    configuration.setExposedHeaders(List.of(RequestIdFilter.REQUEST_ID_HEADER, "Authorization", "Set-Cookie"));
+    configuration.setExposedHeaders(List.of(RequestIdFilter.REQUEST_ID_HEADER, "Authorization", "Set-Cookie", "Content-Disposition"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
 

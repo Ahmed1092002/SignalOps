@@ -3,16 +3,18 @@ package com.signalops.support;
 import java.security.SecureRandom;
 import java.util.Base64;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Tag("integration")
+@ExtendWith(DockerAvailableCondition.class)
 public abstract class IntegrationTestBase {
 
   protected static final String DEMO_PASSWORD = "Test-Passphrase-1";

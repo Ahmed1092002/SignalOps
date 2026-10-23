@@ -5,6 +5,7 @@ import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
@@ -15,7 +16,6 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -48,7 +48,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
   @Override
   public void configureClientInboundChannel(ChannelRegistration registration) {
-    registration.interceptors(new ChannelInterceptor() {
+    registration.interceptors(createInboundInterceptor());
+  }
+
+  ChannelInterceptor createInboundInterceptor() {
+    return new ChannelInterceptor() {
 
       @Override
       public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -61,7 +65,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
           try {
             authenticate(accessor);
           } catch (Exception ex) {
-            log.error("STOMP CONNECT failed: {}", ex.toString());
+            log.error("STOMP CONNECT failed: {}", ex.getMessage());
             throw ex;
           }
         } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
@@ -71,7 +75,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
           }
           String destination = accessor.getDestination();
           if (destination != null && destination.startsWith("/user/")) {
-            if (!destination.startsWith("/user/" + user.getName() + "/")) {
+            boolean isStandardUserQueue =
+                destination.startsWith("/user/queue/")
+                    || destination.startsWith("/user/topic/")
+                    || destination.equals("/user/queue")
+                    || destination.equals("/user/topic");
+            boolean isExplicitOwnQueue =
+                destination.startsWith("/user/" + user.getName() + "/")
+                    || destination.equals("/user/" + user.getName());
+            if (!isStandardUserQueue && !isExplicitOwnQueue) {
               throw new AccessDeniedException("Cannot subscribe to another user's queue.");
             }
             return message;
@@ -90,11 +102,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         }
         return message;
       }
-    });
+    };
   }
 
   private void authenticate(StompHeaderAccessor accessor) {
-    log.warn("CONNECT native headers: {}", accessor.getMessageHeaders());
     AccessTokenVerifier verifier = verifierProvider.getIfAvailable();
     String authHeader = accessor.getFirstNativeHeader("Authorization");
     if (verifier == null || authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -103,6 +114,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     try {
       UUID userId = verifier.verify(authHeader.substring("Bearer ".length()));
       accessor.setUser(new StompPrincipal(userId.toString()));
+      log.debug("STOMP CONNECT authenticated successfully");
     } catch (Exception ex) {
       throw new AccessDeniedException("Invalid access token.");
     }

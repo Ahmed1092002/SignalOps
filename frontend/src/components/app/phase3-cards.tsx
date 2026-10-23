@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  attachmentDownloadUrl,
+  AttachmentView,
   createFollowUpTask,
+  downloadAttachment,
   listAttachments,
   listFollowUpTasks,
   toggleFollowUpTask,
@@ -176,6 +177,18 @@ export function AttachmentsCard({ incident }: { incident: IncidentView }) {
   });
 
   const attachments = attachmentsQuery.data ?? [];
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownload = async (attachment: AttachmentView) => {
+    setDownloadingId(attachment.id);
+    try {
+      await downloadAttachment(incident.id, attachment.id, attachment.filename);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Download failed.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <section className="rounded-lg border bg-card">
@@ -191,15 +204,19 @@ export function AttachmentsCard({ incident }: { incident: IncidentView }) {
         <ul className="space-y-1.5">
           {attachments.map((attachment) => (
             <li key={attachment.id} className="flex items-center justify-between gap-2 text-sm">
-              <a
-                href={attachmentDownloadUrl(incident.id, attachment.id)}
-                target="_blank"
-                rel="noreferrer"
-                className="flex min-w-0 items-center gap-2 text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+              <button
+                type="button"
+                onClick={() => void handleDownload(attachment)}
+                disabled={downloadingId === attachment.id}
+                className="flex min-w-0 items-center gap-2 text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 text-left"
               >
-                <Paperclip className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                {downloadingId === attachment.id ? (
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Paperclip className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                )}
                 <span className="truncate">{attachment.filename}</span>
-              </a>
+              </button>
               <span className="text-num shrink-0 text-xs text-muted-foreground">
                 {Math.max(1, Math.round(attachment.sizeBytes / 1024))} KB
               </span>

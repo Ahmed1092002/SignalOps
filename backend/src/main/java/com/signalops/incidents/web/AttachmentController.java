@@ -2,11 +2,13 @@ package com.signalops.incidents.web;
 
 import com.signalops.incidents.app.AttachmentService;
 import com.signalops.shared.security.UserPrincipal;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -55,10 +57,22 @@ public class AttachmentController {
       @PathVariable UUID attachmentId) {
     var attachment = attachmentService.download(incidentId, attachmentId);
     Resource resource = new ByteArrayResource(attachment.content());
+    MediaType mediaType;
+    try {
+      mediaType = attachment.contentType() != null
+          ? MediaType.parseMediaType(attachment.contentType())
+          : MediaType.APPLICATION_OCTET_STREAM;
+    } catch (Exception ex) {
+      mediaType = MediaType.APPLICATION_OCTET_STREAM;
+    }
     return ResponseEntity.ok()
-        .contentType(MediaType.parseMediaType(attachment.contentType()))
-        .header(HttpHeaders.CONTENT_DISPOSITION,
-            "attachment; filename=\"" + attachment.filename() + "\"")
+        .contentType(mediaType)
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION,
+            ContentDisposition.attachment()
+                .filename(attachment.filename(), StandardCharsets.UTF_8)
+                .build()
+                .toString())
         .body(resource);
   }
 }
