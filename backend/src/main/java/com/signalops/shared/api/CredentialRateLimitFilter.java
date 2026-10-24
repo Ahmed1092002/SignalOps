@@ -36,7 +36,6 @@ public class CredentialRateLimitFilter extends OncePerRequestFilter {
   private final Object windowsLock = new Object();
 
   @Autowired
-
   public CredentialRateLimitFilter(AppProperties properties) {
     this(properties, Clock.systemUTC(), DEFAULT_MAX_ENTRIES, DEFAULT_WINDOW_MS);
   }
