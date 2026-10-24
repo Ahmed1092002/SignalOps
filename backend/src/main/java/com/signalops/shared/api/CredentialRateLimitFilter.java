@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
+import org.springframework.beans.factory.annotation.Autowired;
 /**
  * Minimal fixed-window rate limit for credential endpoints (login/register). Per-instance
  * only — a Redis-backed distributed limiter remains documented backlog for multi-instance
@@ -34,6 +34,8 @@ public class CredentialRateLimitFilter extends OncePerRequestFilter {
   private final long windowMs;
   private final Map<String, Window> windows = new ConcurrentHashMap<>();
   private final Object windowsLock = new Object();
+
+  @Autowired
 
   public CredentialRateLimitFilter(AppProperties properties) {
     this(properties, Clock.systemUTC(), DEFAULT_MAX_ENTRIES, DEFAULT_WINDOW_MS);
