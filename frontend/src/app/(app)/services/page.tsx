@@ -89,7 +89,11 @@ export default function ServicesPage() {
         />
       )}
 
-      <div className="mt-6">`n        <MaintenanceWindowsCard />`n      </div>`n`n      {servicesQuery.data && servicesQuery.data.length > 0 && (
+      <div className="mt-6">
+        <MaintenanceWindowsCard />
+      </div>
+
+      {servicesQuery.data && servicesQuery.data.length > 0 && (
         <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead>

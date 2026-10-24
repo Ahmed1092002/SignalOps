@@ -1,6 +1,6 @@
 package com.signalops.notifications.domain;
 
-import java.util.List;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -12,15 +12,20 @@ import org.springframework.data.repository.query.Param;
 
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
-  Page<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+  Page<Notification> findByOrganizationIdAndUserIdOrderByCreatedAtDesc(
+      UUID organizationId, UUID userId, Pageable pageable);
 
-  long countByUserIdAndReadAtIsNull(UUID userId);
+  long countByOrganizationIdAndUserIdAndReadAtIsNull(UUID organizationId, UUID userId);
 
-  Optional<Notification> findByIdAndUserId(UUID id, UUID userId);
+  Optional<Notification> findByIdAndOrganizationIdAndUserId(
+      UUID id, UUID organizationId, UUID userId);
 
   @Modifying
   @Query(
       "update Notification n set n.readAt = :now"
-          + " where n.userId = :userId and n.readAt is null")
-  int markAllRead(@Param("userId") UUID userId, @Param("now") java.time.Instant now);
+          + " where n.organizationId = :organizationId and n.userId = :userId and n.readAt is null")
+  int markAllRead(
+      @Param("organizationId") UUID organizationId,
+      @Param("userId") UUID userId,
+      @Param("now") Instant now);
 }

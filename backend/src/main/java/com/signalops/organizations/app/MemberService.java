@@ -109,7 +109,12 @@ public class MemberService {
         membership.setStatus(MembershipStatus.DISABLED);
         events.publishEvent(
             new MemberDisabled(
-                context.organizationId(), context.userId(), memberId, emailOf(membership), Instant.now(clock)));
+                context.organizationId(),
+                context.userId(),
+                memberId,
+                membership.getUserId(),
+                emailOf(membership),
+                Instant.now(clock)));
       } else {
         membership.setStatus(MembershipStatus.ACTIVE);
       }
@@ -126,7 +131,13 @@ public class MemberService {
     String email = emailOf(membership);
     membershipRepository.delete(membership);
     events.publishEvent(
-        new MemberRemoved(context.organizationId(), context.userId(), memberId, email, Instant.now(clock)));
+        new MemberRemoved(
+            context.organizationId(),
+            context.userId(),
+            memberId,
+            membership.getUserId(),
+            email,
+            Instant.now(clock)));
   }
 
   private Membership loadMember(UUID memberId) {

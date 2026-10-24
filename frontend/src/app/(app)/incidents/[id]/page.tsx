@@ -199,7 +199,9 @@ export default function IncidentDetailPage() {
             )}
           </Card>
 
-          <ParticipantsCard incident={incident} onChanged={invalidateIncidentData} />`n`n          <FollowUpTasksCard incident={incident} />`n`n          <AttachmentsCard incident={incident} />
+          <ParticipantsCard incident={incident} onChanged={invalidateIncidentData} />
+          <FollowUpTasksCard incident={incident} />
+          <AttachmentsCard incident={incident} />
 
           <Card title="Details">
             <dl className="space-y-2 text-sm">

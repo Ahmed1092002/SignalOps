@@ -5,6 +5,7 @@ import com.signalops.auth.domain.RefreshTokenSessionRepository;
 import com.signalops.shared.api.ApiException;
 import com.signalops.shared.api.ErrorCodes;
 import com.signalops.shared.config.AppProperties;
+import com.signalops.users.api.events.PasswordChanged;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -15,6 +16,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -116,6 +118,19 @@ public class RefreshTokenService {
         .findByTokenHash(hash(rawToken))
         .ifPresent(
             session -> repository.revokeFamily(session.getFamilyId(), Instant.now(clock)));
+  }
+
+  @Transactional
+  public void revokeAllForUser(UUID userId) {
+    repository.revokeAllForUser(userId, Instant.now(clock));
+  }
+
+  @EventListener
+  @Transactional
+  public void onPasswordChanged(PasswordChanged event) {
+    if (event != null && event.userId() != null) {
+      revokeAllForUser(event.userId());
+    }
   }
 
   public String hash(String rawToken) {

@@ -2,10 +2,10 @@ package com.signalops.notifications.app;
 
 import com.signalops.notifications.domain.Notification;
 import com.signalops.notifications.domain.NotificationRepository;
-
 import com.signalops.shared.api.ApiException;
 import com.signalops.shared.api.ErrorCodes;
 import com.signalops.shared.api.PageResponse;
+import com.signalops.shared.security.TenantContext;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
@@ -35,11 +35,12 @@ public class NotificationService {
 
   @Transactional(readOnly = true)
   public PageResponse<NotificationView> listForUser(UUID userId, int page, int size) {
+    UUID orgId = TenantContext.require().organizationId();
     int safePage = Math.max(0, page);
     int safeSize = Math.clamp(size, 1, 50);
     Page<Notification> result =
-        notificationRepository.findByUserIdOrderByCreatedAtDesc(
-            userId, PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt")));
+        notificationRepository.findByOrganizationIdAndUserIdOrderByCreatedAtDesc(
+            orgId, userId, PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt")));
     return new PageResponse<>(
         result.getContent().stream().map(NotificationService::toView).toList(),
         result.getNumber(),
@@ -50,14 +51,16 @@ public class NotificationService {
 
   @Transactional(readOnly = true)
   public long unreadCount(UUID userId) {
-    return notificationRepository.countByUserIdAndReadAtIsNull(userId);
+    UUID orgId = TenantContext.require().organizationId();
+    return notificationRepository.countByOrganizationIdAndUserIdAndReadAtIsNull(orgId, userId);
   }
 
   @Transactional
   public void markRead(UUID userId, UUID notificationId) {
+    UUID orgId = TenantContext.require().organizationId();
     Notification notification =
         notificationRepository
-            .findByIdAndUserId(notificationId, userId)
+            .findByIdAndOrganizationIdAndUserId(notificationId, orgId, userId)
             .orElseThrow(() -> ApiException.notFound("Notification not found."));
     if (notification.isUnread()) {
       notification.setReadAt(Instant.now(clock));
@@ -66,7 +69,8 @@ public class NotificationService {
 
   @Transactional
   public void markAllRead(UUID userId) {
-    notificationRepository.markAllRead(userId, Instant.now(clock));
+    UUID orgId = TenantContext.require().organizationId();
+    notificationRepository.markAllRead(orgId, userId, Instant.now(clock));
   }
 
   private static NotificationView toView(Notification notification) {

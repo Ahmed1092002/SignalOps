@@ -22,12 +22,32 @@ public final class OrganizationEvents {
       implements com.signalops.shared.domain.DomainEvent {}
 
   public record MemberDisabled(
-      UUID organizationId, UUID actorUserId, UUID memberId, String memberEmail, Instant occurredAt)
-      implements com.signalops.shared.domain.DomainEvent {}
+      UUID organizationId,
+      UUID actorUserId,
+      UUID memberId,
+      UUID userId,
+      String memberEmail,
+      Instant occurredAt)
+      implements com.signalops.shared.domain.DomainEvent {
+    public MemberDisabled(
+        UUID organizationId, UUID actorUserId, UUID memberId, String memberEmail, Instant occurredAt) {
+      this(organizationId, actorUserId, memberId, null, memberEmail, occurredAt);
+    }
+  }
 
   public record MemberRemoved(
-      UUID organizationId, UUID actorUserId, UUID memberId, String memberEmail, Instant occurredAt)
-      implements com.signalops.shared.domain.DomainEvent {}
+      UUID organizationId,
+      UUID actorUserId,
+      UUID memberId,
+      UUID userId,
+      String memberEmail,
+      Instant occurredAt)
+      implements com.signalops.shared.domain.DomainEvent {
+    public MemberRemoved(
+        UUID organizationId, UUID actorUserId, UUID memberId, String memberEmail, Instant occurredAt) {
+      this(organizationId, actorUserId, memberId, null, memberEmail, occurredAt);
+    }
+  }
 
   public record OrganizationSettingsUpdated(
       UUID organizationId, UUID actorUserId, String summary, Instant occurredAt)

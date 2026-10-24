@@ -196,4 +196,39 @@ class RefreshTokenServiceTest {
     assertThat(reuseCount.get()).isEqualTo(1);
     verify(repository).revokeFamily(eq(familyId), any());
   }
+
+  @Test
+  void revokeAllForUserRevokesActiveSessions() {
+    service.revokeAllForUser(userId);
+
+    verify(repository).revokeAllForUser(eq(userId), any(Instant.class));
+  }
+
+  @Test
+  void passwordChangedEventTriggersRevokeAllForUser() {
+    com.signalops.users.api.events.PasswordChanged event =
+        new com.signalops.users.api.events.PasswordChanged(userId, java.util.List.of(), Instant.now());
+
+    service.onPasswordChanged(event);
+
+    verify(repository).revokeAllForUser(eq(userId), any(Instant.class));
+  }
+
+  @Test
+  void rotatedTokenAfterPasswordChangeRevocationIsRejected() {
+    String rawToken = "user-token-before-password-change";
+    String tokenHash = service.hash(rawToken);
+
+    RefreshTokenSession session = new RefreshTokenSession();
+    session.setUserId(userId);
+    session.setFamilyId(familyId);
+    session.setTokenHash(tokenHash);
+    session.setExpiresAt(Instant.now().plus(Duration.ofDays(1)));
+    session.setRevokedAt(Instant.now());
+
+    when(repository.findByTokenHashWithLock(tokenHash)).thenReturn(Optional.of(session));
+
+    assertThatThrownBy(() -> service.rotate(rawToken, "test-agent"))
+        .isInstanceOf(RefreshTokenService.RefreshTokenReuseException.class);
+  }
 }
