@@ -60,8 +60,10 @@ public class ServiceCatalogController {
           @RequestParam(defaultValue = "0") int page,
           @RequestParam(defaultValue = "20") int size) {
     var context = com.signalops.shared.security.TenantContext.require();
-    var result = incidentQueryApi.findByService(context.organizationId(), serviceId, page, size);
+    int safePage = Math.max(0, page);
+    int safeSize = Math.clamp(size, 1, 100);
+    var result = incidentQueryApi.findByService(context.organizationId(), serviceId, safePage, safeSize);
     long total = incidentQueryApi.countByService(context.organizationId(), serviceId);
-    return com.signalops.shared.api.PageResponse.of(result, page, size, total);
+    return com.signalops.shared.api.PageResponse.of(result, safePage, safeSize, total);
   }
 }

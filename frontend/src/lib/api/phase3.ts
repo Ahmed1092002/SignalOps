@@ -1,4 +1,4 @@
-import { http } from "@/lib/http";
+import { http, refreshSession } from "@/lib/http";
 import { API_BASE_URL } from "@/lib/env";
 import { useSessionStore } from "@/stores/session-store";
 
@@ -58,23 +58,69 @@ export async function listAttachments(
   return http<AttachmentView[]>(`/incidents/${incidentId}/attachments`, { signal });
 }
 
+export function buildAuthHeaders(customHeaders?: HeadersInit): Record<string, string> {
+  const state = useSessionStore.getState();
+  const headers: Record<string, string> = {
+    "X-Requested-With": "XMLHttpRequest",
+  };
+  if (customHeaders) {
+    if (customHeaders instanceof Headers) {
+      customHeaders.forEach((val, key) => {
+        headers[key] = val;
+      });
+    } else if (Array.isArray(customHeaders)) {
+      customHeaders.forEach(([key, val]) => {
+        headers[key] = val;
+      });
+    } else {
+      Object.assign(headers, customHeaders);
+    }
+  }
+  if (state.accessToken) {
+    headers["Authorization"] = `Bearer ${state.accessToken}`;
+  }
+  if (state.activeOrgId) {
+    headers["X-Organization-Id"] = state.activeOrgId;
+  }
+  return headers;
+}
+
+export async function authenticatedRawFetch(
+  url: string,
+  options: RequestInit = {},
+  isRetry = false
+): Promise<Response> {
+  const headers = buildAuthHeaders(options.headers);
+  const response = await fetch(url, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+
+  if (response.status === 401 && !isRetry) {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      return authenticatedRawFetch(url, options, true);
+    }
+    useSessionStore.getState().clearSession();
+  }
+
+  return response;
+}
+
 export async function uploadAttachment(
   incidentId: string,
   file: File
 ): Promise<AttachmentView> {
   const form = new FormData();
   form.append("file", file);
-  const state = useSessionStore.getState();
-  const response = await fetch(`${API_BASE_URL}/incidents/${incidentId}/attachments`, {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + state.accessToken,
-      "X-Organization-Id": state.activeOrgId ?? "",
-      "X-Requested-With": "XMLHttpRequest",
-    },
-    credentials: "include",
-    body: form,
-  });
+  const response = await authenticatedRawFetch(
+    `${API_BASE_URL}/incidents/${incidentId}/attachments`,
+    {
+      method: "POST",
+      body: form,
+    }
+  );
   if (!response.ok) {
     let message = "Upload failed.";
     try {
@@ -97,17 +143,10 @@ export async function downloadAttachment(
   attachmentId: string,
   filename: string
 ): Promise<void> {
-  const state = useSessionStore.getState();
-  const response = await fetch(
+  const response = await authenticatedRawFetch(
     `${API_BASE_URL}/incidents/${incidentId}/attachments/${attachmentId}/download`,
     {
       method: "GET",
-      headers: {
-        Authorization: "Bearer " + state.accessToken,
-        "X-Organization-Id": state.activeOrgId ?? "",
-        "X-Requested-With": "XMLHttpRequest",
-      },
-      credentials: "include",
     }
   );
   if (!response.ok) {

@@ -12,37 +12,51 @@ interface Props {
   params: Promise<{ orgSlug: string }>;
 }
 
-async function safeFetch(slug: string): Promise<PublicStatusView | null> {
+export type PublicStatusResult =
+  | { status: "success"; data: PublicStatusView }
+  | { status: "not_found" }
+  | { status: "unavailable" };
+
+export async function fetchPublicStatus(slug: string): Promise<PublicStatusResult> {
   try {
     const response = await fetch(`${API_BASE_URL}/public/status/${slug}`, {
       headers: { Accept: "application/json" },
       next: { revalidate: 30 },
     });
-    if (!response.ok) return null;
-    return (await response.json()) as PublicStatusView;
+    if (response.status === 404) {
+      return { status: "not_found" };
+    }
+    if (!response.ok) {
+      return { status: "unavailable" };
+    }
+    const data = (await response.json()) as PublicStatusView;
+    return { status: "success", data };
   } catch {
-    return null;
+    return { status: "unavailable" };
   }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { orgSlug } = await params;
-  const data = await safeFetch(orgSlug);
-  if (!data) {
+  const result = await fetchPublicStatus(orgSlug);
+  if (result.status === "not_found") {
     return { title: "Status page not found" };
   }
+  if (result.status === "unavailable") {
+    return { title: "Status page temporarily unavailable" };
+  }
   return {
-    title: data.organizationName + " Status",
+    title: result.data.organizationName + " Status",
     description:
-      "Current service status and incident history for " + data.organizationName + ", powered by SignalOps.",
+      "Current service status and incident history for " + result.data.organizationName + ", powered by SignalOps.",
   };
 }
 
 export default async function PublicStatusPage({ params }: Props) {
   const { orgSlug } = await params;
-  const data = await safeFetch(orgSlug);
+  const result = await fetchPublicStatus(orgSlug);
 
-  if (!data) {
+  if (result.status === "not_found") {
     return (
       <main className="mx-auto flex min-h-dvh max-w-3xl flex-col items-center justify-center gap-3 p-6 text-center">
         <SignalOpsMark className="h-10 w-10 opacity-50" />
@@ -54,6 +68,25 @@ export default async function PublicStatusPage({ params }: Props) {
     );
   }
 
+  if (result.status === "unavailable") {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-3xl flex-col items-center justify-center gap-3 p-6 text-center">
+        <SignalOpsMark className="h-10 w-10 opacity-50 text-destructive" />
+        <h1 className="text-lg font-semibold">Status page temporarily unavailable</h1>
+        <p className="max-w-md text-sm text-muted-foreground">
+          We are unable to load the status page right now due to a service error. Please try reloading the page.
+        </p>
+        <a
+          href={`/status/${orgSlug}`}
+          className="mt-2 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
+        >
+          Reload page
+        </a>
+      </main>
+    );
+  }
+
+  const data = result.data;
   const banner =
     data.overallStatus === "OPERATIONAL"
       ? { tone: "success", title: "All systems operational" }

@@ -11,4 +11,7 @@ public interface FollowUpTaskRepository extends JpaRepository<FollowUpTask, UUID
       UUID incidentId, UUID organizationId);
 
   Optional<FollowUpTask> findByIdAndOrganizationId(UUID id, UUID organizationId);
+
+  Optional<FollowUpTask> findByIdAndIncidentIdAndOrganizationId(
+      UUID id, UUID incidentId, UUID organizationId);
 }

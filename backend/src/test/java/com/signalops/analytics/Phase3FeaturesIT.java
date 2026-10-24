@@ -60,6 +60,66 @@ class Phase3FeaturesIT extends IntegrationTestBase {
   }
 
   @Test
+  void commanderOfIncidentACannotToggleTaskBelongingToIncidentB() throws Exception {
+    var owner = api.registerAndLogin(api.uniqueEmail(), "Cross Incident Tasks Org");
+    String serviceId = createService(owner);
+
+    inviteAndAccept(owner, "commander-a@example.com", "INCIDENT_COMMANDER");
+    var commanderA = api.login("commander-a@example.com", TestHarness.DEMO_PASSWORD, owner.organizationId());
+    String commanderAUserId = commanderA.userId();
+
+    MvcResult incAResult =
+        mockMvc
+            .perform(
+                api.post(
+                    "/api/v1/incidents",
+                    owner,
+                    """
+                    {"title":"Incident A","description":"","severity":"LOW","serviceIds":["%s"],"commanderUserId":"%s","responderUserIds":[]}
+                    """
+                        .formatted(serviceId, commanderAUserId)))
+            .andExpect(status().isCreated())
+            .andReturn();
+    String incidentAId =
+        api.objectMapper().readTree(incAResult.getResponse().getContentAsString()).path("id").asText();
+
+    MvcResult incBResult =
+        mockMvc
+            .perform(
+                api.post(
+                    "/api/v1/incidents",
+                    owner,
+                    """
+                    {"title":"Incident B","description":"","severity":"LOW","serviceIds":["%s"],"commanderUserId":null,"responderUserIds":[]}
+                    """
+                        .formatted(serviceId)))
+            .andExpect(status().isCreated())
+            .andReturn();
+    String incidentBId =
+        api.objectMapper().readTree(incBResult.getResponse().getContentAsString()).path("id").asText();
+
+    MvcResult taskResult =
+        mockMvc
+            .perform(
+                api.post(
+                    "/api/v1/incidents/" + incidentBId + "/follow-up-tasks",
+                    owner,
+                    "{\"title\":\"Fix incident B bug\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
+    String taskBId =
+        api.objectMapper().readTree(taskResult.getResponse().getContentAsString()).path("id").asText();
+
+    mockMvc
+        .perform(
+            api.post(
+                "/api/v1/incidents/" + incidentAId + "/follow-up-tasks/" + taskBId + "/toggle",
+                commanderA))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+  }
+
+  @Test
   void attachmentsUploadListDownloadAndSizeCap() throws Exception {
     var owner = api.registerAndLogin(api.uniqueEmail(), "Files Org");
     String serviceId = createService(owner);

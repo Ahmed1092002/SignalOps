@@ -73,7 +73,7 @@ public class FollowUpTaskService {
     Incident incident = load(incidentId, context.organizationId());
     FollowUpTask task =
         taskRepository
-            .findByIdAndOrganizationId(taskId, context.organizationId())
+            .findByIdAndIncidentIdAndOrganizationId(taskId, incidentId, context.organizationId())
             .orElseThrow(() -> ApiException.notFound("Task not found."));
     boolean mayComplete =
         context.isAdminLike()

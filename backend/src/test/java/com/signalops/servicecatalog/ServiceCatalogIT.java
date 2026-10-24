@@ -50,6 +50,25 @@ class ServiceCatalogIT extends IntegrationTestBase {
         .perform(api.get("/api/v1/services?includeArchived=true", session))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(1));
+
+    // Service incidents pagination metadata normalization
+    mockMvc
+        .perform(api.get("/api/v1/services/" + serviceId + "/incidents?page=-1&size=0", session))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(1));
+
+    mockMvc
+        .perform(api.get("/api/v1/services/" + serviceId + "/incidents?page=0&size=-5", session))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(1));
+
+    mockMvc
+        .perform(api.get("/api/v1/services/" + serviceId + "/incidents?page=0&size=500", session))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(100));
   }
 
   @Test
